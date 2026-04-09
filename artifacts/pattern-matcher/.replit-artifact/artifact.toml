@@ -1,0 +1,31 @@
+kind = "data-app"
+previewPath = "/"
+title = "AsiaWave Pattern Matcher"
+version = "1.0.0"
+id = "artifacts/pattern-matcher"
+router = "path"
+
+[[integratedSkills]]
+name = "data-visualization"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18751
+
+[services.development]
+run = "pnpm --filter @workspace/pattern-matcher run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pattern-matcher", "run", "build" ]
+publicDir = "artifacts/pattern-matcher/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18751"
+BASE_PATH = "/"

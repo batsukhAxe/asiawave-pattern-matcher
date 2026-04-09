@@ -1,0 +1,807 @@
+//+------------------------------------------------------------------+
+//|                              AsiaWave_PatternDB.mq5              |
+//|                    Asia Session = 100% baseline                  |
+//|                    Pattern Database + CSV Export                 |
+//+------------------------------------------------------------------+
+#property copyright "Batsukh"
+#property version   "5.00"
+#property indicator_chart_window
+
+//--- Input parameters
+input int      InpDaysToAnalyze = 30;              // Хэдэн өдөр шинжлэх
+input int      InpSwingLookback = 3;               // Swing lookback
+input color    InpPeakWaveColor = clrLime;         // Peak өнгө
+input color    InpBottomWaveColor = clrOrange;     // Bottom өнгө
+input bool     InpShowAllDays = false;             // Бүх өдрүүдийг харуулах
+
+//--- Asia Session (GMT)
+input group    "═══ ASIA SESSION ═══"
+input int      InpAsiaStartHour = 2;               // Эхлэх цаг (GMT) - Tokyo open
+input int      InpAsiaEndHour = 8;                 // Дуусах цаг (GMT) - London open
+input color    InpAsiaBoxColor = clrDarkSlateGray; // Asia session box
+
+//--- Pattern Database
+input group    "═══ PATTERN DATABASE ═══"
+input bool     InpEnableCSV = true;                // CSV файлд хадгалах
+input string   InpCSVFileName = "AsiaWave_Patterns.csv"; // CSV файлын нэр
+input bool     InpEnableHistMatch = true;          // Түүхэн pattern олох
+input int      InpMinMatchWaves = 4;               // Харьцуулах wave (3-8)
+input double   InpHistMatchTolerance = 15.0;       // Зөрүү (%)
+input bool     InpShowProjection = true;           // Projection
+input color    InpProjectionColor = clrDodgerBlue; // Projection өнгө
+
+//--- Pattern Recognition
+input group    "═══ Manual Patterns ═══"
+input bool     InpEnablePattern = false;           // Manual pattern хайлт
+input string   InpPattern1 = "100,50,78.6,38.2";  // Pattern 1
+input string   InpPattern2 = "100,61.8,100,61.8"; // Pattern 2
+input string   InpPattern3 = "100,38.2,61.8,23.6";// Pattern 3
+
+string g_prefix = "AWP_";
+
+struct DailyWaveData
+{
+   datetime date;
+   double asiaHigh;
+   double asiaLow;
+   double asiaRange;
+   datetime asiaHighTime;
+   datetime asiaLowTime;
+   
+   double peakWavePercents[8];
+   int peakWaveCount;
+   string peakPattern;
+   string peakDirection;  // "UP" or "DOWN"
+   
+   double bottomWavePercents[8];
+   int bottomWaveCount;
+   string bottomPattern;
+   string bottomDirection;
+   
+   int peakHistMatchDay;
+   double peakHistMatchScore;
+   int bottomHistMatchDay;
+   double bottomHistMatchScore;
+};
+
+DailyWaveData g_dailyWaves[];
+int g_dataCount = 0;
+double g_patterns[][8];
+int g_patternCount = 0;
+
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   ParsePatterns();
+   return(INIT_SUCCEEDED);
+}
+
+void OnDeinit(const int reason)
+{
+   ObjectsDeleteAll(0, g_prefix);
+}
+
+int OnCalculate(const int rates_total, const int prev_calculated,
+                const datetime &time[], const double &open[],
+                const double &high[], const double &low[],
+                const double &close[], const long &tick_volume[],
+                const long &volume[], const int &spread[])
+{
+   if(prev_calculated == 0)
+   {
+      ObjectsDeleteAll(0, g_prefix);
+      AnalyzeAsiaWaves();
+   }
+   return(rates_total);
+}
+
+void OnChartEvent(const int id, const long &lparam, const double &dparam, const string &sparam)
+{
+   if(id == CHARTEVENT_KEYDOWN && (lparam == 'U' || lparam == 'u'))
+   {
+      ObjectsDeleteAll(0, g_prefix);
+      AnalyzeAsiaWaves();
+      ChartRedraw();
+   }
+}
+
+//+------------------------------------------------------------------+
+void ParsePatterns()
+{
+   ArrayResize(g_patterns, 3);
+   g_patternCount = 0;
+   string patternStrings[3] = {InpPattern1, InpPattern2, InpPattern3};
+   
+   for(int p = 0; p < 3; p++)
+   {
+      if(StringLen(patternStrings[p]) == 0) continue;
+      string parts[];
+      int count = StringSplit(patternStrings[p], ',', parts);
+      if(count > 0 && count <= 8)
+      {
+         for(int i = 0; i < 8; i++)
+            g_patterns[p][i] = (i < count) ? StringToDouble(parts[i]) : 0;
+         g_patternCount++;
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+void AnalyzeAsiaWaves()
+{
+   Print("════════════════════════════════════════════════════");
+   Print("ASIA SESSION WAVE PATTERN ANALYZER");
+   Print("Asia Hours: ", InpAsiaStartHour, ":00 - ", InpAsiaEndHour, ":00 GMT");
+   Print("════════════════════════════════════════════════════");
+   
+   ArrayResize(g_dailyWaves, 0);
+   g_dataCount = 0;
+   
+   for(int day = 0; day < InpDaysToAnalyze; day++)
+   {
+      DailyWaveData waveData;
+      if(AnalyzeDailyWaves(day, waveData))
+      {
+         ArrayResize(g_dailyWaves, g_dataCount + 1);
+         g_dailyWaves[g_dataCount] = waveData;
+         g_dataCount++;
+      }
+   }
+   
+   if(InpEnableHistMatch && g_dataCount > 1)
+   {
+      Print("─────────────────────────────────────");
+      Print("HISTORICAL PATTERN MATCHING");
+      FindHistoricalMatches();
+   }
+   
+   if(InpEnableCSV)
+      ExportToCSV();
+   
+   int daysToShow = InpShowAllDays ? g_dataCount : MathMin(5, g_dataCount);
+   for(int i = 0; i < daysToShow; i++)
+      DrawDailyWaves(i, g_dailyWaves[i]);
+   
+   DrawInfoPanel();
+}
+
+//+------------------------------------------------------------------+
+bool AnalyzeDailyWaves(int dayIndex, DailyWaveData &waveData)
+{
+   datetime dayStart = iTime(_Symbol, PERIOD_D1, dayIndex);
+   waveData.date = dayStart;
+   
+   ArrayInitialize(waveData.peakWavePercents, 0);
+   ArrayInitialize(waveData.bottomWavePercents, 0);
+   waveData.peakWaveCount = 0;
+   waveData.bottomWaveCount = 0;
+   waveData.peakPattern = "";
+   waveData.bottomPattern = "";
+   waveData.peakDirection = "";
+   waveData.bottomDirection = "";
+   waveData.peakHistMatchDay = -1;
+   waveData.bottomHistMatchDay = -1;
+   
+   // Get Asia Session High/Low
+   if(!GetAsiaSessionRange(dayStart, waveData))
+      return false;
+   
+   if(waveData.asiaRange <= 0)
+      return false;
+   
+   // Analyze waves from Asia range
+   AnalyzePeakWaves(dayIndex, waveData);
+   AnalyzeBottomWaves(dayIndex, waveData);
+   
+   return true;
+}
+
+//+------------------------------------------------------------------+
+bool GetAsiaSessionRange(datetime dayStart, DailyWaveData &waveData)
+{
+   datetime asiaStart = dayStart + InpAsiaStartHour * 3600;
+   datetime asiaEnd = dayStart + InpAsiaEndHour * 3600;
+   
+   int startBar = iBarShift(_Symbol, PERIOD_CURRENT, asiaStart);
+   int endBar = iBarShift(_Symbol, PERIOD_CURRENT, asiaEnd);
+   
+   if(startBar < 0 || endBar < 0) return false;
+   
+   waveData.asiaHigh = -DBL_MAX;
+   waveData.asiaLow = DBL_MAX;
+   
+   // Asia session дотор high/low хайх
+   for(int i = endBar; i <= startBar; i++)
+   {
+      double h = iHigh(_Symbol, PERIOD_CURRENT, i);
+      double l = iLow(_Symbol, PERIOD_CURRENT, i);
+      
+      if(h > waveData.asiaHigh)
+      {
+         waveData.asiaHigh = h;
+         waveData.asiaHighTime = iTime(_Symbol, PERIOD_CURRENT, i);
+      }
+      
+      if(l < waveData.asiaLow)
+      {
+         waveData.asiaLow = l;
+         waveData.asiaLowTime = iTime(_Symbol, PERIOD_CURRENT, i);
+      }
+   }
+   
+   waveData.asiaRange = waveData.asiaHigh - waveData.asiaLow;
+   
+   Print(TimeToString(dayStart, TIME_DATE), " Asia: H=", waveData.asiaHigh, 
+         " L=", waveData.asiaLow, " Range=", waveData.asiaRange);
+   
+   return true;
+}
+
+//+------------------------------------------------------------------+
+void AnalyzePeakWaves(int dayIndex, DailyWaveData &waveData)
+{
+   // Wave1 = Asia High → Asia Low (100%)
+   waveData.peakWavePercents[0] = 100.0;
+   waveData.peakWaveCount = 1;
+   
+   // Asia Low-оос баруун тийш wave тоолох
+   int asiaLowBar = iBarShift(_Symbol, PERIOD_CURRENT, waveData.asiaLowTime);
+   
+   if(asiaLowBar < 0) return;
+   
+   FindWavesFromPoint(asiaLowBar, waveData.asiaLow, waveData.asiaLowTime,
+                      waveData.asiaRange, waveData.peakWavePercents, waveData.peakWaveCount);
+   
+   // Direction判定: Asia High-аас өмнө хаагдсан бол DOWN, дараа бол UP
+   waveData.peakDirection = (waveData.asiaHighTime < waveData.asiaLowTime) ? "DOWN" : "UP";
+}
+
+void AnalyzeBottomWaves(int dayIndex, DailyWaveData &waveData)
+{
+   // Wave1 = Asia Low → Asia High (100%)
+   waveData.bottomWavePercents[0] = 100.0;
+   waveData.bottomWaveCount = 1;
+   
+   // Asia High-аас баруун тийш wave тоолох
+   int asiaHighBar = iBarShift(_Symbol, PERIOD_CURRENT, waveData.asiaHighTime);
+   
+   if(asiaHighBar < 0) return;
+   
+   FindWavesFromPoint(asiaHighBar, waveData.asiaHigh, waveData.asiaHighTime,
+                      waveData.asiaRange, waveData.bottomWavePercents, waveData.bottomWaveCount);
+   
+   waveData.bottomDirection = (waveData.asiaLowTime < waveData.asiaHighTime) ? "UP" : "DOWN";
+}
+
+void FindWavesFromPoint(int startBar, double startPrice, datetime startTime,
+                        double asiaRange, double &wavePercents[], int &waveCount)
+{
+   double swingPrices[], filteredP[];
+   datetime swingTimes[], filteredT[];
+   int swingTypes[], filteredType[];
+   
+   ArrayResize(swingPrices, 1);
+   ArrayResize(swingTimes, 1);
+   ArrayResize(swingTypes, 1);
+   swingPrices[0] = startPrice;
+   swingTimes[0] = startTime;
+   swingTypes[0] = 0;
+   
+   int size = 1;
+   
+   // БАРУУН ТИЙШ swing хайх
+   for(int i = startBar - 1; i >= 0 && size < 20; i--)
+   {
+      if(i < InpSwingLookback) break;
+      
+      if(IsSwingHigh(i, InpSwingLookback))
+      {
+         ArrayResize(swingPrices, size + 1);
+         ArrayResize(swingTimes, size + 1);
+         ArrayResize(swingTypes, size + 1);
+         swingPrices[size] = iHigh(_Symbol, PERIOD_CURRENT, i);
+         swingTimes[size] = iTime(_Symbol, PERIOD_CURRENT, i);
+         swingTypes[size] = 1;
+         size++;
+      }
+      
+      if(IsSwingLow(i, InpSwingLookback) && size < 20)
+      {
+         ArrayResize(swingPrices, size + 1);
+         ArrayResize(swingTimes, size + 1);
+         ArrayResize(swingTypes, size + 1);
+         swingPrices[size] = iLow(_Symbol, PERIOD_CURRENT, i);
+         swingTimes[size] = iTime(_Symbol, PERIOD_CURRENT, i);
+         swingTypes[size] = -1;
+         size++;
+      }
+   }
+   
+   if(size < 2) return;
+   
+   FilterAlternating(swingPrices, swingTimes, swingTypes, filteredP, filteredT, filteredType);
+   
+   int totalPoints = ArraySize(filteredP);
+   int wavesToAdd = MathMin(7, totalPoints - 1);
+   
+   for(int w = 0; w < wavesToAdd && (waveCount + w) < 8; w++)
+   {
+      double waveSize = MathAbs(filteredP[w + 1] - filteredP[w]);
+      double fiboPercent = (waveSize / asiaRange) * 100.0;
+      wavePercents[waveCount + w] = fiboPercent;
+   }
+   
+   waveCount += wavesToAdd;
+}
+
+//+------------------------------------------------------------------+
+void FindHistoricalMatches()
+{
+   if(g_dataCount < 2) return;
+   
+   int recentIdx = 0;
+   int comparePeakWaves = MathMin(InpMinMatchWaves, g_dailyWaves[recentIdx].peakWaveCount);
+   int compareBottomWaves = MathMin(InpMinMatchWaves, g_dailyWaves[recentIdx].bottomWaveCount);
+   
+   double bestPeakScore = 0;
+   int bestPeakMatch = -1;
+   double bestBottomScore = 0;
+   int bestBottomMatch = -1;
+   
+   for(int i = 1; i < g_dataCount; i++)
+   {
+      if(comparePeakWaves >= 3 && g_dailyWaves[i].peakWaveCount >= comparePeakWaves)
+      {
+         double score = CompareWaveSequences(
+            g_dailyWaves[recentIdx].peakWavePercents, g_dailyWaves[recentIdx].peakWaveCount,
+            g_dailyWaves[i].peakWavePercents, g_dailyWaves[i].peakWaveCount,
+            comparePeakWaves);
+         
+         if(score > bestPeakScore)
+         {
+            bestPeakScore = score;
+            bestPeakMatch = i;
+         }
+      }
+      
+      if(compareBottomWaves >= 3 && g_dailyWaves[i].bottomWaveCount >= compareBottomWaves)
+      {
+         double score = CompareWaveSequences(
+            g_dailyWaves[recentIdx].bottomWavePercents, g_dailyWaves[recentIdx].bottomWaveCount,
+            g_dailyWaves[i].bottomWavePercents, g_dailyWaves[i].bottomWaveCount,
+            compareBottomWaves);
+         
+         if(score > bestBottomScore)
+         {
+            bestBottomScore = score;
+            bestBottomMatch = i;
+         }
+      }
+   }
+   
+   if(bestPeakScore > (100 - InpHistMatchTolerance))
+   {
+      g_dailyWaves[0].peakHistMatchDay = bestPeakMatch;
+      g_dailyWaves[0].peakHistMatchScore = bestPeakScore;
+      Print("✅ PEAK MATCH: ", TimeToString(g_dailyWaves[bestPeakMatch].date, TIME_DATE),
+            " Score: ", DoubleToString(bestPeakScore, 1), "%");
+   }
+   
+   if(bestBottomScore > (100 - InpHistMatchTolerance))
+   {
+      g_dailyWaves[0].bottomHistMatchDay = bestBottomMatch;
+      g_dailyWaves[0].bottomHistMatchScore = bestBottomScore;
+      Print("✅ BOTTOM MATCH: ", TimeToString(g_dailyWaves[bestBottomMatch].date, TIME_DATE),
+            " Score: ", DoubleToString(bestBottomScore, 1), "%");
+   }
+}
+
+double CompareWaveSequences(const double &recent[], int recentCount,
+                           const double &historical[], int histCount,
+                           int compareWaves)
+{
+   int recentStart = recentCount - compareWaves;
+   int histStart = histCount - compareWaves;
+   
+   if(recentStart < 0 || histStart < 0) return 0;
+   
+   double totalDiff = 0;
+   int matchCount = 0;
+   
+   for(int i = 0; i < compareWaves; i++)
+   {
+      double recentVal = recent[recentStart + i];
+      double histVal = historical[histStart + i];
+      
+      if(recentVal == 0 || histVal == 0) break;
+      
+      double diff = MathAbs(recentVal - histVal);
+      double avgVal = (recentVal + histVal) / 2.0;
+      double diffPercent = (diff / avgVal) * 100.0;
+      
+      totalDiff += diffPercent;
+      matchCount++;
+   }
+   
+   if(matchCount == 0) return 0;
+   return MathMax(0, 100 - (totalDiff / matchCount));
+}
+
+//+------------------------------------------------------------------+
+void ExportToCSV()
+{
+   string filename = InpCSVFileName;
+   int fileHandle = FileOpen(filename, FILE_WRITE|FILE_CSV|FILE_ANSI, ',');
+   
+   if(fileHandle == INVALID_HANDLE)
+   {
+      Print("❌ CSV файл нээх алдаа: ", GetLastError());
+      return;
+   }
+   
+   // Header
+   FileWrite(fileHandle, "Date", "AsiaHigh", "AsiaLow", "AsiaRange", 
+             "PeakPattern", "PeakDirection", "BottomPattern", "BottomDirection",
+             "PeakMatchDate", "PeakMatchScore", "BottomMatchDate", "BottomMatchScore");
+   
+   // Data
+   for(int i = 0; i < g_dataCount; i++)
+   {
+      string peakPattern = "";
+      for(int w = 0; w < g_dailyWaves[i].peakWaveCount; w++)
+      {
+         if(w > 0) peakPattern += ";";
+         peakPattern += DoubleToString(g_dailyWaves[i].peakWavePercents[w], 1);
+      }
+      
+      string bottomPattern = "";
+      for(int w = 0; w < g_dailyWaves[i].bottomWaveCount; w++)
+      {
+         if(w > 0) bottomPattern += ";";
+         bottomPattern += DoubleToString(g_dailyWaves[i].bottomWavePercents[w], 1);
+      }
+      
+      string peakMatchDate = (g_dailyWaves[i].peakHistMatchDay >= 0) ?
+         TimeToString(g_dailyWaves[g_dailyWaves[i].peakHistMatchDay].date, TIME_DATE) : "-";
+      
+      string bottomMatchDate = (g_dailyWaves[i].bottomHistMatchDay >= 0) ?
+         TimeToString(g_dailyWaves[g_dailyWaves[i].bottomHistMatchDay].date, TIME_DATE) : "-";
+      
+      FileWrite(fileHandle,
+         TimeToString(g_dailyWaves[i].date, TIME_DATE),
+         DoubleToString(g_dailyWaves[i].asiaHigh, _Digits),
+         DoubleToString(g_dailyWaves[i].asiaLow, _Digits),
+         DoubleToString(g_dailyWaves[i].asiaRange, _Digits),
+         peakPattern,
+         g_dailyWaves[i].peakDirection,
+         bottomPattern,
+         g_dailyWaves[i].bottomDirection,
+         peakMatchDate,
+         DoubleToString(g_dailyWaves[i].peakHistMatchScore, 1),
+         bottomMatchDate,
+         DoubleToString(g_dailyWaves[i].bottomHistMatchScore, 1)
+      );
+   }
+   
+   FileClose(fileHandle);
+   Print("✅ CSV хадгалагдлаа: ", filename, " (", g_dataCount, " өдөр)");
+}
+
+//+------------------------------------------------------------------+
+void DrawDailyWaves(int index, const DailyWaveData &waveData)
+{
+   string dayPrefix = g_prefix + "D" + IntegerToString(index) + "_";
+   
+   // Day marker
+   ObjectCreate(0, dayPrefix + "Date", OBJ_VLINE, 0, waveData.date, 0);
+   ObjectSetInteger(0, dayPrefix + "Date", OBJPROP_COLOR, clrGray);
+   ObjectSetInteger(0, dayPrefix + "Date", OBJPROP_STYLE, STYLE_DOT);
+   ObjectSetInteger(0, dayPrefix + "Date", OBJPROP_BACK, true);
+   
+   // Asia Session Box
+   datetime asiaStart = waveData.date + InpAsiaStartHour * 3600;
+   datetime asiaEnd = waveData.date + InpAsiaEndHour * 3600;
+   
+   ObjectCreate(0, dayPrefix + "AsiaBox", OBJ_RECTANGLE, 0, 
+                asiaStart, waveData.asiaHigh, asiaEnd, waveData.asiaLow);
+   ObjectSetInteger(0, dayPrefix + "AsiaBox", OBJPROP_COLOR, InpAsiaBoxColor);
+   ObjectSetInteger(0, dayPrefix + "AsiaBox", OBJPROP_STYLE, STYLE_SOLID);
+   ObjectSetInteger(0, dayPrefix + "AsiaBox", OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, dayPrefix + "AsiaBox", OBJPROP_BACK, true);
+   ObjectSetInteger(0, dayPrefix + "AsiaBox", OBJPROP_FILL, false);
+   
+   // Wave1 line: Asia High → Low
+   ObjectCreate(0, dayPrefix + "W1", OBJ_TREND, 0, 
+                waveData.asiaHighTime, waveData.asiaHigh,
+                waveData.asiaLowTime, waveData.asiaLow);
+   ObjectSetInteger(0, dayPrefix + "W1", OBJPROP_COLOR, clrYellow);
+   ObjectSetInteger(0, dayPrefix + "W1", OBJPROP_WIDTH, 3);
+   ObjectSetInteger(0, dayPrefix + "W1", OBJPROP_RAY_RIGHT, false);
+   
+   // Draw remaining waves
+   DrawWaveLines(dayPrefix, "P", waveData.asiaLowTime, waveData.asiaLow,
+                 waveData.peakWaveCount, waveData.peakWavePercents, InpPeakWaveColor);
+   
+   DrawWaveLines(dayPrefix, "B", waveData.asiaHighTime, waveData.asiaHigh,
+                 waveData.bottomWaveCount, waveData.bottomWavePercents, InpBottomWaveColor);
+   
+   // Projection
+   if(index == 0 && InpShowProjection)
+   {
+      if(waveData.peakHistMatchDay >= 0)
+         DrawProjection("P", 0, waveData.peakHistMatchDay);
+      if(waveData.bottomHistMatchDay >= 0)
+         DrawProjection("B", 0, waveData.bottomHistMatchDay);
+   }
+}
+
+void DrawWaveLines(string prefix, string type, datetime startTime, double startPrice,
+                   int waveCount, const double &wavePercents[], color waveColor)
+{
+   if(waveCount < 2) return;
+   
+   int startBar = iBarShift(_Symbol, PERIOD_CURRENT, startTime);
+   if(startBar < 0) return;
+   
+   double prices[];
+   datetime times[];
+   int types[];
+   
+   ArrayResize(prices, 1);
+   ArrayResize(times, 1);
+   ArrayResize(types, 1);
+   prices[0] = startPrice;
+   times[0] = startTime;
+   types[0] = 0;
+   
+   int size = 1;
+   
+   for(int i = startBar - 1; i >= 0 && size < waveCount + 5; i--)
+   {
+      if(IsSwingHigh(i, InpSwingLookback))
+      {
+         ArrayResize(prices, size + 1);
+         ArrayResize(times, size + 1);
+         ArrayResize(types, size + 1);
+         prices[size] = iHigh(_Symbol, PERIOD_CURRENT, i);
+         times[size] = iTime(_Symbol, PERIOD_CURRENT, i);
+         types[size] = 1;
+         size++;
+      }
+      if(IsSwingLow(i, InpSwingLookback))
+      {
+         ArrayResize(prices, size + 1);
+         ArrayResize(times, size + 1);
+         ArrayResize(types, size + 1);
+         prices[size] = iLow(_Symbol, PERIOD_CURRENT, i);
+         times[size] = iTime(_Symbol, PERIOD_CURRENT, i);
+         types[size] = -1;
+         size++;
+      }
+   }
+   
+   double filteredP[];
+   datetime filteredT[];
+   int filteredType[];
+   FilterAlternating(prices, times, types, filteredP, filteredT, filteredType);
+   
+   int total = MathMin(waveCount, ArraySize(filteredP) - 1);
+   
+   for(int w = 0; w < total; w++)
+   {
+      string lineName = prefix + type + "W" + IntegerToString(w + 1);
+      ObjectCreate(0, lineName, OBJ_TREND, 0, filteredT[w], filteredP[w], filteredT[w + 1], filteredP[w + 1]);
+      ObjectSetInteger(0, lineName, OBJPROP_COLOR, waveColor);
+      ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
+      ObjectSetInteger(0, lineName, OBJPROP_RAY_RIGHT, false);
+      
+      double labelOffset = 20 * _Point * MathPow(10, _Digits - 4);
+      double labelPrice = filteredP[w + 1] + ((filteredP[w + 1] > filteredP[w]) ? labelOffset : -labelOffset);
+      
+      ObjectCreate(0, lineName + "Lbl", OBJ_TEXT, 0, filteredT[w + 1], labelPrice);
+      ObjectSetString(0, lineName + "Lbl", OBJPROP_TEXT, 
+                     type + IntegerToString(w + 1) + "[" + DoubleToString(wavePercents[w], 0) + "%]");
+      ObjectSetInteger(0, lineName + "Lbl", OBJPROP_COLOR, waveColor);
+      ObjectSetInteger(0, lineName + "Lbl", OBJPROP_FONTSIZE, 8);
+   }
+}
+
+void DrawProjection(string type, int recentIdx, int historicalIdx)
+{
+   double histWaves[];
+   int histCount = (type == "P") ? g_dailyWaves[historicalIdx].peakWaveCount : 
+                                    g_dailyWaves[historicalIdx].bottomWaveCount;
+   int compareWaves = InpMinMatchWaves;
+   int projectionWaves = histCount - compareWaves;
+   
+   if(projectionWaves <= 0) return;
+   
+   ArrayResize(histWaves, projectionWaves);
+   
+   for(int i = 0; i < projectionWaves; i++)
+   {
+      if(type == "P")
+         histWaves[i] = g_dailyWaves[historicalIdx].peakWavePercents[compareWaves + i];
+      else
+         histWaves[i] = g_dailyWaves[historicalIdx].bottomWavePercents[compareWaves + i];
+   }
+   
+   datetime startTime = TimeCurrent();
+   double startPrice = iClose(_Symbol, PERIOD_CURRENT, 0);
+   double asiaRange = g_dailyWaves[recentIdx].asiaRange;
+   
+   string prefix = g_prefix + "Proj_" + type + "_";
+   datetime currentTime = startTime;
+   double currentPrice = startPrice;
+   int direction = (type == "P") ? -1 : 1;
+   
+   for(int i = 0; i < projectionWaves; i++)
+   {
+      double fiboPercent = histWaves[i];
+      double waveSize = (asiaRange * fiboPercent) / 100.0;
+      datetime nextTime = currentTime + (4 * 3600);
+      double nextPrice = currentPrice + (waveSize * direction);
+      direction *= -1;
+      
+      string lineName = prefix + "Line" + IntegerToString(i + 1);
+      ObjectCreate(0, lineName, OBJ_TREND, 0, currentTime, currentPrice, nextTime, nextPrice);
+      ObjectSetInteger(0, lineName, OBJPROP_COLOR, InpProjectionColor);
+      ObjectSetInteger(0, lineName, OBJPROP_STYLE, STYLE_DOT);
+      ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
+      ObjectSetInteger(0, lineName, OBJPROP_BACK, true);
+      
+      currentTime = nextTime;
+      currentPrice = nextPrice;
+   }
+   
+   ObjectCreate(0, prefix + "Info", OBJ_TEXT, 0, startTime, startPrice);
+   ObjectSetString(0, prefix + "Info", OBJPROP_TEXT, 
+      "📊 " + TimeToString(g_dailyWaves[historicalIdx].date, TIME_DATE) + 
+      " (" + DoubleToString((type == "P") ? g_dailyWaves[recentIdx].peakHistMatchScore : 
+                                             g_dailyWaves[recentIdx].bottomHistMatchScore, 0) + "%)");
+   ObjectSetInteger(0, prefix + "Info", OBJPROP_COLOR, clrYellow);
+   ObjectSetInteger(0, prefix + "Info", OBJPROP_FONTSIZE, 9);
+}
+
+//+------------------------------------------------------------------+
+void DrawInfoPanel()
+{
+   int x = 20, y = 30, lineH = 16;
+   int rowsToShow = MathMin(20, g_dataCount);
+   
+   ObjectCreate(0, g_prefix + "Panel", OBJ_RECTANGLE_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_XDISTANCE, x - 10);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_YDISTANCE, y - 10);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_XSIZE, 800);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_YSIZE, 100 + rowsToShow * lineH * 2);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_BGCOLOR, C'15,15,25');
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_BORDER_TYPE, BORDER_FLAT);
+   ObjectSetInteger(0, g_prefix + "Panel", OBJPROP_COLOR, clrGold);
+   
+   CreateLabel("Title", x, y, "═══ ASIA WAVE PATTERN ANALYZER ═══", clrGold, 10);
+   CreateLabel("Info", x, y + lineH, 
+      "Asia: " + IntegerToString(InpAsiaStartHour) + "-" + IntegerToString(InpAsiaEndHour) + 
+      "GMT | Days: " + IntegerToString(g_dataCount) + " | 'U'=Update", clrCyan, 8);
+   
+   if(InpEnableCSV)
+      CreateLabel("CSV", x, y + lineH * 2, "CSV: " + InpCSVFileName, clrLime, 7);
+   
+   int currentY = y + lineH * 4;
+   
+   for(int i = 0; i < rowsToShow; i++)
+   {
+      string dateStr = TimeToString(g_dailyWaves[i].date, TIME_DATE);
+      string rangeStr = DoubleToString(g_dailyWaves[i].asiaRange, 1);
+      
+      string peakW = "", bottomW = "";
+      for(int w = 0; w < MathMin(6, g_dailyWaves[i].peakWaveCount); w++)
+      {
+         if(w > 0) peakW += ",";
+         peakW += DoubleToString(g_dailyWaves[i].peakWavePercents[w], 0);
+      }
+      for(int w = 0; w < MathMin(6, g_dailyWaves[i].bottomWaveCount); w++)
+      {
+         if(w > 0) bottomW += ",";
+         bottomW += DoubleToString(g_dailyWaves[i].bottomWavePercents[w], 0);
+      }
+      
+      string peakMatch = (g_dailyWaves[i].peakHistMatchDay >= 0) ? 
+         "📊" + TimeToString(g_dailyWaves[g_dailyWaves[i].peakHistMatchDay].date, TIME_DATE) : "";
+      string bottomMatch = (g_dailyWaves[i].bottomHistMatchDay >= 0) ?
+         "📊" + TimeToString(g_dailyWaves[g_dailyWaves[i].bottomHistMatchDay].date, TIME_DATE) : "";
+      
+      color peakColor = (g_dailyWaves[i].peakHistMatchDay >= 0) ? InpPeakWaveColor : clrWhite;
+      color bottomColor = (g_dailyWaves[i].bottomHistMatchDay >= 0) ? InpBottomWaveColor : clrWhite;
+      
+      string row1 = dateStr + " R:" + rangeStr + " P[" + peakW + "]" + g_dailyWaves[i].peakDirection + " " + peakMatch;
+      string row2 = "          " + "       B[" + bottomW + "]" + g_dailyWaves[i].bottomDirection + " " + bottomMatch;
+      
+      CreateLabel("R" + IntegerToString(i) + "A", x, currentY, row1, peakColor, 7);
+      CreateLabel("R" + IntegerToString(i) + "B", x, currentY + lineH, row2, bottomColor, 7);
+      
+      currentY += lineH * 2;
+   }
+}
+
+void CreateLabel(string name, int x, int y, string text, color clr, int fontSize)
+{
+   string objName = g_prefix + name;
+   ObjectCreate(0, objName, OBJ_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, objName, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, objName, OBJPROP_YDISTANCE, y);
+   ObjectSetString(0, objName, OBJPROP_TEXT, text);
+   ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, fontSize);
+   ObjectSetString(0, objName, OBJPROP_FONT, "Consolas");
+}
+
+//+------------------------------------------------------------------+
+bool IsSwingHigh(int bar, int lookback)
+{
+   if(bar < lookback || bar >= Bars(_Symbol, PERIOD_CURRENT) - lookback) return false;
+   double high = iHigh(_Symbol, PERIOD_CURRENT, bar);
+   for(int i = 1; i <= lookback; i++)
+   {
+      if(iHigh(_Symbol, PERIOD_CURRENT, bar - i) >= high) return false;
+      if(iHigh(_Symbol, PERIOD_CURRENT, bar + i) >= high) return false;
+   }
+   return true;
+}
+
+bool IsSwingLow(int bar, int lookback)
+{
+   if(bar < lookback || bar >= Bars(_Symbol, PERIOD_CURRENT) - lookback) return false;
+   double low = iLow(_Symbol, PERIOD_CURRENT, bar);
+   for(int i = 1; i <= lookback; i++)
+   {
+      if(iLow(_Symbol, PERIOD_CURRENT, bar - i) <= low) return false;
+      if(iLow(_Symbol, PERIOD_CURRENT, bar + i) <= low) return false;
+   }
+   return true;
+}
+
+void FilterAlternating(const double &inP[], const datetime &inT[], const int &inType[],
+                       double &outP[], datetime &outT[], int &outType[])
+{
+   int n = ArraySize(inP);
+   if(n == 0) return;
+   
+   ArrayResize(outP, 1);
+   ArrayResize(outT, 1);
+   ArrayResize(outType, 1);
+   outP[0] = inP[0];
+   outT[0] = inT[0];
+   outType[0] = inType[0];
+   
+   int size = 1;
+   int lastType = inType[0];
+   
+   for(int i = 1; i < n; i++)
+   {
+      if(inType[i] != lastType)
+      {
+         ArrayResize(outP, size + 1);
+         ArrayResize(outT, size + 1);
+         ArrayResize(outType, size + 1);
+         outP[size] = inP[i];
+         outT[size] = inT[i];
+         outType[size] = inType[i];
+         lastType = inType[i];
+         size++;
+      }
+      else
+      {
+         if(inType[i] == 1 && inP[i] > outP[size - 1])
+         {
+            outP[size - 1] = inP[i];
+            outT[size - 1] = inT[i];
+         }
+         else if(inType[i] == -1 && inP[i] < outP[size - 1])
+         {
+            outP[size - 1] = inP[i];
+            outT[size - 1] = inT[i];
+         }
+      }
+   }
+}
+//+------------------------------------------------------------------+   энэ индикорын дагуу  хайрцагуудыг паттерн болгож ижил төстэй чанаруудыг ол

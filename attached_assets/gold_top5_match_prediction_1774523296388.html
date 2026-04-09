@@ -1,0 +1,224 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mc{background:var(--color-background-secondary);border-radius:8px;padding:8px 12px;text-align:center}
+.mc .lb{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px}
+.mc .vl{font-size:17px;font-weight:500}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:10px;padding:10px 12px}
+.card-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.match-row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;padding:6px 8px;border-radius:6px;margin-bottom:4px;font-size:12px;border:0.5px solid var(--color-border-tertiary)}
+.badge{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500}
+.bull{background:#dcfce7;color:#166534}
+.bear{background:#fee2e2;color:#7f1d1d}
+.score-bar{height:6px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden}
+.score-fill{height:100%;border-radius:3px;background:#378ADD}
+.leg{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--color-text-secondary);margin-top:6px}
+.leg span{display:flex;align-items:center;gap:4px}
+.ldot{width:20px;height:2px;border-radius:1px;display:inline-block}
+.pred-box{border-radius:10px;padding:12px 16px;text-align:center;border:1.5px solid}
+</style>
+
+<div style="padding:0.5rem 0">
+
+<div style="margin-bottom:10px;font-size:11px;color:var(--color-text-secondary)">
+  2026-03-25 session &nbsp;|&nbsp; High: <b style="color:var(--color-text-primary)">4602.42</b> &nbsp; Low: <b style="color:var(--color-text-primary)">4455.66</b> &nbsp; Range: <b style="color:var(--color-text-primary)">1467.6 pip</b> &nbsp; Last: <b style="color:var(--color-text-primary)">4561.05</b> &nbsp; Position: <b style="color:#378ADD">71.8% of range</b>
+</div>
+
+<div class="grid4">
+  <div class="mc"><div class="lb">Pattern match</div><div class="vl" style="color:#378ADD">5/5 BULL</div></div>
+  <div class="mc"><div class="lb">Weighted direction</div><div class="vl" style="color:#22c55e">BULLISH</div></div>
+  <div class="mc"><div class="lb">Avg UP extension</div><div class="vl">+590 pip</div></div>
+  <div class="mc"><div class="lb">Best match score</div><div class="vl">70.5 / 100</div></div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">Top 5 historical matches</div>
+
+    <div class="match-row" style="background:rgba(34,197,94,0.07)">
+      <span style="font-weight:500;color:#1d4ed8;font-size:11px">#1</span>
+      <div>
+        <div style="font-weight:500;font-size:12px">2025-06-12</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">W: 57.6 / 14.7 / 21.5 / 14.5 / 24.9</div>
+        <div class="score-bar" style="margin-top:3px"><div class="score-fill" style="width:70.5%"></div></div>
+      </div>
+      <span class="badge bull">BULL</span>
+      <div style="text-align:right;font-size:10px;color:var(--color-text-secondary)">392 pip<br>+53.5%</div>
+      <div style="text-align:right;font-size:11px;font-weight:500;color:#378ADD">70.5</div>
+    </div>
+
+    <div class="match-row" style="background:rgba(34,197,94,0.05)">
+      <span style="font-weight:500;color:#1d4ed8;font-size:11px">#2</span>
+      <div>
+        <div style="font-weight:500;font-size:12px">2026-01-28</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">W: 49.9 / 17.1 / 34.0 / 17.1 / 14.6</div>
+        <div class="score-bar" style="margin-top:3px"><div class="score-fill" style="width:64.7%"></div></div>
+      </div>
+      <span class="badge bull">BULL</span>
+      <div style="text-align:right;font-size:10px;color:var(--color-text-secondary)">1356 pip<br>+72.6%</div>
+      <div style="text-align:right;font-size:11px;font-weight:500;color:#378ADD">64.7</div>
+    </div>
+
+    <div class="match-row" style="background:rgba(34,197,94,0.05)">
+      <span style="font-weight:500;color:#1d4ed8;font-size:11px">#3</span>
+      <div>
+        <div style="font-weight:500;font-size:12px">2026-02-25</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">W: 36.5 / 16.5 / 57.9 / 17.0 / 20.8</div>
+        <div class="score-bar" style="margin-top:3px"><div class="score-fill" style="width:63.5%"></div></div>
+      </div>
+      <span class="badge bull">BULL</span>
+      <div style="text-align:right;font-size:10px;color:var(--color-text-secondary)">922 pip<br>+7.4%</div>
+      <div style="text-align:right;font-size:11px;font-weight:500;color:#378ADD">63.5</div>
+    </div>
+
+    <div class="match-row" style="background:rgba(34,197,94,0.04)">
+      <span style="font-weight:500;color:#1d4ed8;font-size:11px">#4</span>
+      <div>
+        <div style="font-weight:500;font-size:12px">2025-09-10</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">W: 63.8 / 18.1 / 34.8 / 10.1 / 16.2</div>
+        <div class="score-bar" style="margin-top:3px"><div class="score-fill" style="width:62.9%"></div></div>
+      </div>
+      <span class="badge bull">BULL</span>
+      <div style="text-align:right;font-size:10px;color:var(--color-text-secondary)">282 pip<br>+32.4%</div>
+      <div style="text-align:right;font-size:11px;font-weight:500;color:#378ADD">62.9</div>
+    </div>
+
+    <div class="match-row" style="background:rgba(34,197,94,0.03)">
+      <span style="font-weight:500;color:#1d4ed8;font-size:11px">#5</span>
+      <div>
+        <div style="font-weight:500;font-size:12px">2026-01-02</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">W: 49.2 / 20.5 / 25.5 / 19.6 / 16.5</div>
+        <div class="score-bar" style="margin-top:3px"><div class="score-fill" style="width:61.1%"></div></div>
+      </div>
+      <span class="badge bull">BULL</span>
+      <div style="text-align:right;font-size:10px;color:var(--color-text-secondary)">590 pip<br>+32.5%</div>
+      <div style="text-align:right;font-size:11px;font-weight:500;color:#378ADD">61.1</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-title">Normalized trajectory (% of session range)</div>
+      <div style="position:relative;height:200px"><canvas id="trajChart"></canvas></div>
+      <div class="leg">
+        <span><span class="ldot" style="background:#22c55e;height:2px"></span>Current (now)</span>
+        <span><span class="ldot" style="background:#f59e0b;height:1px;border-top:1px dashed #f59e0b"></span>#1 Jun-12</span>
+        <span><span class="ldot" style="background:#3b82f6;height:1px;border-top:1px dashed #3b82f6"></span>#2 Jan-28</span>
+        <span><span class="ldot" style="background:#a855f7;height:1px;border-top:1px dashed #a855f7"></span>#3 Feb-25</span>
+        <span><span class="ldot" style="background:#ec4899;height:1px;border-top:1px dashed #ec4899"></span>#4 Sep-10</span>
+        <span><span class="ldot" style="background:#64748b;height:1px;border-top:1px dashed #64748b"></span>#5 Jan-02</span>
+      </div>
+    </div>
+
+    <div class="pred-box" style="border-color:#22c55e;background:rgba(34,197,94,0.06)">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px">Weighted prediction</div>
+      <div style="font-size:22px;font-weight:500;color:#166534;margin-bottom:4px">BULLISH 100%</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        <div style="background:rgba(34,197,94,0.12);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--color-text-secondary)">UP target</div>
+          <div style="font-size:14px;font-weight:500;color:#166534">4602 → 5192</div>
+          <div style="font-size:10px;color:#166534">+590 pip avg</div>
+        </div>
+        <div style="background:rgba(239,68,68,0.08);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--color-text-secondary)">DOWN risk</div>
+          <div style="font-size:14px;font-weight:500;color:#7f1d1d">4455 → 4054</div>
+          <div style="font-size:10px;color:#991b1b">-400 pip avg</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--color-text-secondary)">
+        First break votes: HIGH×5 &nbsp;|&nbsp; Best match: 2025-06-12 (70.5pt)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Wave comparison — current vs top 5</div>
+  <div style="position:relative;height:160px"><canvas id="waveChart"></canvas></div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CURR_POST_PCT = [61.28,65.28,69.93,73.24,72.77,74.82,75.3,73.3,74.53,74.34,70.37,68.32,73.02,72.79,72.47,73.53,68.12,69.96,68.63,67.87,64.61,55.97,63.03,65.43,70.24,68.96,67.57,68.6,66.74,67.74,66.55,68.31,65.63,69.26,71.92,71.81];
+
+const MATCHES = [
+  {label:'#1 Jun-12',color:'#f59e0b',data:[30.83,27.65,30.83,45.09,45.75,52.04,54.76,50.89,58.06,64.19,66.45,66.05,69.02,73.55,78.64,76.08,76.53,78.93,82.53,81.43,80.63,84.63,84.63,85.49,87.43,90.16,92.57,94.01,96.0,99.09,103.31,106.35,107.37,108.49,108.04,110.06,112.49,112.69,113.52,114.45,117.0,120.21,122.29,124.07,126.06,128.05,128.18,125.71,125.51,124.47,124.99,124.26,125.81,126.45,127.24,127.42,128.65,130.77,129.84,129.02]},
+  {label:'#2 Jan-28',color:'#3b82f6',data:[102.4,101.37,100.32,99.09,99.87,104.67,109.16,103.01,106.21,110.85,114.27,113.35,116.7,119.88,120.98,121.3,122.02,122.49,123.93,126.29,125.76,122.47,126.53,128.12,131.03,131.73,135.81,135.12,136.63,139.67,144.0,146.7,149.45,151.03,151.53,152.87,152.56,151.95,155.29,157.87,160.41,160.3,162.01,163.15,163.41,165.17,165.04,163.52,165.13,165.0,167.25,168.95,169.18,168.32,168.74,170.05,170.38,169.47,169.54,170.58]},
+  {label:'#3 Feb-25',color:'#a855f7',data:[75.53,74.28,74.82,80.27,81.06,81.45,83.44,81.99,82.43,80.23,79.7,79.98,83.44,85.12,86.21,89.5,90.08,89.08,87.24,86.18,86.98,84.83,82.41,81.25,81.87,82.75,85.0,84.88,83.64,82.89,83.49,82.78,81.77,81.88,79.83,81.23,83.2,83.69,83.6,83.69,82.9,82.89,82.74,84.14,82.44,82.9,82.74,82.53,84.98,85.46,85.03,84.88,83.51,84.09,84.54,87.38,88.67,87.24,86.35,85.78]},
+  {label:'#4 Sep-10',color:'#ec4899',data:[80.53,88.78,87.04,85.52,80.46,86.87,86.23,87.26,84.51,85.15,83.32,83.32,89.04,93.4,94.6,95.34,97.48,98.62,100.68,102.17,108.42,110.62,112.36,116.36,118.83,119.9,121.95,123.33,125.54,127.46,128.83,128.83,128.83,130.25,128.83,128.83,128.83,128.83,128.83,128.83,128.83,128.83,128.83,128.83,132.44,131.97,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02,130.02]},
+  {label:'#5 Jan-02',color:'#64748b',data:[99.05,104.32,102.86,99.46,100.39,103.32,109.09,108.92,110.67,113.39,115.21,117.17,116.09,118.61,118.65,115.38,115.05,115.65,116.21,120.91,118.51,118.54,120.63,120.52,118.51,119.72,117.73,119.43,121.13,123.5,126.11,127.64,128.84,130.39,130.75,131.64,134.05,136.21,136.47,134.71,133.94,134.29,135.64,136.58,140.04,141.89,144.17,141.68,140.06,143.04,146.13,148.25,149.15,151.49,150.21,148.87,150.23,152.47,151.28,150.69]},
+];
+
+const xLabels = Array.from({length:60},(_,i)=>{
+  const mins = i*5;
+  const h = Math.floor(mins/60)+8;
+  const m = (mins%60).toString().padStart(2,'0');
+  return h+':'+m;
+});
+
+const currExtended = [...CURR_POST_PCT, ...Array(60-CURR_POST_PCT.length).fill(null)];
+
+new Chart(document.getElementById('trajChart'),{
+  type:'line',
+  data:{
+    labels: xLabels,
+    datasets:[
+      {label:'Current',data:currExtended,borderColor:'#22c55e',borderWidth:2.5,pointRadius:0,tension:.3,fill:false},
+      ...MATCHES.map(m=>({label:m.label,data:m.data,borderColor:m.color,borderWidth:1,
+        borderDash:[4,3],pointRadius:0,tension:.3,fill:false,borderDashOffset:0}))
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,
+      callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y?.toFixed(1)+'%'}}},
+    scales:{
+      x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'rgba(128,128,128,0.06)'}},
+      y:{ticks:{callback:v=>v+'%',font:{size:9}},
+         title:{display:true,text:'% of range',font:{size:9}},
+         grid:{color:'rgba(128,128,128,0.06)'}}
+    }
+  }
+});
+
+const WAVE_LABELS = ['W1','W2','W3','W4','W5'];
+const CURR_WAVES  = [79.2,13.4,33.2,14.4,15.4];
+const HIST_WAVES  = [
+  [57.6,14.7,21.5,14.5,24.9],
+  [49.9,17.1,34.0,17.1,14.6],
+  [36.5,16.5,57.9,17.0,20.8],
+  [63.8,18.1,34.8,10.1,16.2],
+  [49.2,20.5,25.5,19.6,16.5],
+];
+const COLORS=['#f59e0b','#3b82f6','#a855f7','#ec4899','#64748b'];
+
+new Chart(document.getElementById('waveChart'),{
+  type:'bar',
+  data:{
+    labels: WAVE_LABELS,
+    datasets:[
+      {label:'Current',data:CURR_WAVES,backgroundColor:'rgba(34,197,94,0.7)',borderRadius:3},
+      ...HIST_WAVES.map((d,i)=>({
+        label:['Jun-12','Jan-28','Feb-25','Sep-10','Jan-02'][i],
+        data:d,
+        backgroundColor:COLORS[i]+'55',
+        borderColor:COLORS[i],
+        borderWidth:1,
+        borderRadius:2
+      }))
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:true,position:'right',labels:{font:{size:9},boxWidth:10,padding:6}}},
+    scales:{
+      x:{ticks:{font:{size:10}},grid:{display:false}},
+      y:{ticks:{callback:v=>v+'%',font:{size:9}},grid:{color:'rgba(128,128,128,0.06)'}}
+    }
+  }
+});
+</script>
