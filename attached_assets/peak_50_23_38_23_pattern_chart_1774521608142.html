@@ -1,0 +1,167 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1rem 0}
+.top{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.mc{background:var(--color-background-secondary);border-radius:8px;padding:10px 12px;text-align:center}
+.mc .lb{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.mc .vl{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.mc .sub{font-size:11px;color:var(--color-text-secondary)}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--color-text-secondary);margin-top:10px}
+.leg span{display:flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block}
+</style>
+<div class="wrap">
+<div class="top">
+  <div class="mc"><div class="lb">W0 — session</div><div class="vl" style="color:#8884d8">100%</div><div class="sub">High → Low</div></div>
+  <div class="mc"><div class="lb">W1 — peak</div><div class="vl" style="color:#22c55e">50%</div><div class="sub">Low → bounce</div></div>
+  <div class="mc"><div class="lb">W2 — retrace</div><div class="vl" style="color:#ef4444">23%</div><div class="sub">pullback</div></div>
+  <div class="mc"><div class="lb">W3 — push</div><div class="vl" style="color:#22c55e">38%</div><div class="sub">continuation</div></div>
+</div>
+
+<div style="position:relative;width:100%;height:420px">
+  <canvas id="wc"></canvas>
+</div>
+
+<div class="leg">
+  <span><span class="dot" style="background:#8884d8"></span>Session (21:00–07:55)</span>
+  <span><span class="dot" style="background:#22c55e"></span>Peak wave (UP)</span>
+  <span><span class="dot" style="background:#ef4444"></span>Retrace wave (DOWN)</span>
+  <span><span class="dot" style="background:#f59e0b;opacity:.4"></span>Session H/L levels</span>
+  <span><span class="dot" style="background:#3b82f6;border:1px dashed #3b82f6;background:transparent"></span>Fib % уртууд</span>
+</div>
+
+<div style="margin-top:14px;padding:10px 14px;background:var(--color-background-secondary);border-radius:8px;font-size:12px;color:var(--color-text-secondary)">
+  Жишээ: Session range = 200 pip (2726 → 2708).
+  W1=+100pip &nbsp;|&nbsp; W2=−46pip &nbsp;|&nbsp; W3=+76pip &nbsp;|&nbsp; W4=−46pip &nbsp;|&nbsp;
+  Outcome: <span style="color:#22c55e;font-weight:500">BULLISH 66.7%</span>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const R = 200;
+const BASE = 2708;
+const SH = BASE + R;
+
+const sessHour = 10;
+const pts = [
+  { x: 0,        y: SH,              label: 'Session HIGH\n2726.00' },
+  { x: sessHour, y: BASE,            label: 'Session LOW\n2708.00' },
+  { x: sessHour + 3,  y: BASE + R*0.50, label: 'W1 +50%\n+100p → 2818' },
+  { x: sessHour + 6,  y: BASE + R*0.50 - R*0.23, label: 'W2 −23%\n−46p → 2772' },
+  { x: sessHour + 9,  y: BASE + R*0.50 - R*0.23 + R*0.38, label: 'W3 +38%\n+76p → 2848' },
+  { x: sessHour + 12, y: BASE + R*0.50 - R*0.23 + R*0.38 - R*0.23, label: 'W4 −23%\n−46p → 2802' },
+];
+
+const timeLabels = pts.map((p,i) => {
+  const hours = [21,7,10,13,16,19];
+  return hours[i] !== undefined ? hours[i]+':00' : '';
+});
+timeLabels[0]='21:00';timeLabels[1]='07:55';timeLabels[2]='11:00';timeLabels[3]='14:00';timeLabels[4]='17:00';timeLabels[5]='20:00';
+
+const sess = { data: pts.slice(0,2).map((p,i)=>({x:p.x,y:p.y})), borderColor:'#8884d8', borderWidth:3, pointRadius:6, pointBackgroundColor:'#8884d8', tension:0, fill:false };
+const w1 = { data:[{x:pts[1].x,y:pts[1].y},{x:pts[2].x,y:pts[2].y}], borderColor:'#22c55e', borderWidth:3, pointRadius:5, pointBackgroundColor:'#22c55e', tension:0, fill:false };
+const w2 = { data:[{x:pts[2].x,y:pts[2].y},{x:pts[3].x,y:pts[3].y}], borderColor:'#ef4444', borderWidth:3, pointRadius:5, pointBackgroundColor:'#ef4444', tension:0, fill:false };
+const w3 = { data:[{x:pts[3].x,y:pts[3].y},{x:pts[4].x,y:pts[4].y}], borderColor:'#22c55e', borderWidth:3, pointRadius:5, pointBackgroundColor:'#22c55e', tension:0, fill:false };
+const w4 = { data:[{x:pts[4].x,y:pts[4].y},{x:pts[5].x,y:pts[5].y}], borderColor:'#ef4444', borderWidth:3, pointRadius:5, pointBackgroundColor:'#ef4444', tension:0, fill:false };
+
+const allX = pts.map(p=>p.x);
+const minX = Math.min(...allX); const maxX = Math.max(...allX)+1;
+const allY = pts.map(p=>p.y);
+const minY = Math.min(...allY)-30; const maxY = Math.max(...allY)+30;
+
+const sessFill = {
+  type:'line', data:[{x:0,y:SH},{x:sessHour,y:SH}],
+  borderColor:'rgba(234,179,8,0.3)', borderWidth:1, borderDash:[4,4],
+  pointRadius:0, fill:false, tension:0
+};
+const sessLow = {
+  type:'line', data:[{x:0,y:BASE},{x:maxX,y:BASE}],
+  borderColor:'rgba(234,179,8,0.3)', borderWidth:1, borderDash:[4,4],
+  pointRadius:0, fill:false, tension:0
+};
+const sessHi = {
+  type:'line', data:[{x:0,y:SH},{x:maxX,y:SH}],
+  borderColor:'rgba(234,179,8,0.3)', borderWidth:1, borderDash:[4,4],
+  pointRadius:0, fill:false, tension:0
+};
+
+const sessBox = {
+  id:'sessBox',
+  afterDraw(chart){
+    const {ctx,scales:{x,y}}=chart;
+    const x0=x.getPixelForValue(0);
+    const x1=x.getPixelForValue(sessHour);
+    const yTop=y.getPixelForValue(SH);
+    const yBot=y.getPixelForValue(BASE);
+    ctx.save();
+    ctx.fillStyle='rgba(136,132,216,0.08)';
+    ctx.fillRect(x0,yTop,x1-x0,yBot-yTop);
+    ctx.strokeStyle='rgba(136,132,216,0.35)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(x0,yTop,x1-x0,yBot-yTop);
+    ctx.fillStyle='rgba(136,132,216,0.7)';
+    ctx.font='11px sans-serif';
+    ctx.fillText('Session 21:00–07:55',(x0+x1)/2-40,yTop-6);
+    ctx.restore();
+  }
+};
+
+const waveLabels = {
+  id:'wlbl',
+  afterDraw(chart){
+    const {ctx,scales:{x,y}}=chart;
+    const pairs=[
+      {p1:pts[0],p2:pts[1],lbl:'W0  100%',col:'#8884d8'},
+      {p1:pts[1],p2:pts[2],lbl:'W1  +50%',col:'#22c55e'},
+      {p1:pts[2],p2:pts[3],lbl:'W2  −23%',col:'#ef4444'},
+      {p1:pts[3],p2:pts[4],lbl:'W3  +38%',col:'#22c55e'},
+      {p1:pts[4],p2:pts[5],lbl:'W4  −23%',col:'#ef4444'},
+    ];
+    pairs.forEach(({p1,p2,lbl,col})=>{
+      const mx=(x.getPixelForValue(p1.x)+x.getPixelForValue(p2.x))/2;
+      const my=(y.getPixelForValue(p1.y)+y.getPixelForValue(p2.y))/2;
+      ctx.save();
+      ctx.font='bold 11px sans-serif';
+      ctx.fillStyle=col;
+      const tw=ctx.measureText(lbl).width;
+      ctx.fillStyle='rgba(255,255,255,0.75)';
+      ctx.fillRect(mx-tw/2-3,my-10,tw+6,16);
+      ctx.fillStyle=col;
+      ctx.fillText(lbl,mx-tw/2,my+3);
+      ctx.restore();
+    });
+    pts.forEach((p,i)=>{
+      const px=x.getPixelForValue(p.x);
+      const py=y.getPixelForValue(p.y);
+      const prices=[SH,BASE,BASE+R*.5,BASE+R*.5-R*.23,BASE+R*.5-R*.23+R*.38,BASE+R*.5-R*.23+R*.38-R*.23];
+      const lbl=prices[i].toFixed(2);
+      ctx.save();
+      ctx.font='11px sans-serif';
+      ctx.fillStyle='rgba(255,255,255,0.8)';
+      const tw2=ctx.measureText(lbl).width;
+      const off=i%2===0?12:-20;
+      ctx.fillRect(px+4,py+off-10,tw2+4,14);
+      ctx.fillStyle='#374151';
+      ctx.fillText(lbl,px+6,py+off+1);
+      ctx.restore();
+    });
+  }
+};
+
+new Chart(document.getElementById('wc'),{
+  type:'line',
+  data:{datasets:[sessFill,sessLow,sessHi,sess,w1,w2,w3,w4]},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    animation:false,
+    plugins:{legend:{display:false},tooltip:{enabled:false}},
+    scales:{
+      x:{type:'linear',min:minX-0.5,max:maxX,ticks:{callback:v=>{const m={0:'21:00',10:'07:55',13:'11:00',16:'14:00',19:'17:00',22:'20:00'};return m[v]||''},font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},
+      y:{min:minY,max:maxY,ticks:{callback:v=>v.toFixed(0),font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}}
+    }
+  },
+  plugins:[sessBox,waveLabels]
+});
+</script>

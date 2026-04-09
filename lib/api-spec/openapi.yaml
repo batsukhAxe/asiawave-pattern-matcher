@@ -1,0 +1,266 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: pattern-matcher
+    description: AsiaWave Pattern Matcher operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /pattern-matcher/ohlcv:
+    get:
+      operationId: getOhlcv
+      tags: [pattern-matcher]
+      summary: Get OHLCV candle data
+      description: Returns OHLCV data for the chart (simulated real-time data)
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            default: "USDJPY"
+        - name: bars
+          in: query
+          schema:
+            type: integer
+            default: 300
+      responses:
+        "200":
+          description: OHLCV candles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candle"
+  /pattern-matcher/sessions:
+    get:
+      operationId: getSessions
+      tags: [pattern-matcher]
+      summary: Get analyzed Asia session data
+      description: Returns analyzed Asia session wave patterns for all days
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 60
+      responses:
+        "200":
+          description: Session analysis list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionAnalysis"
+  /pattern-matcher/matches:
+    get:
+      operationId: getPatternMatches
+      tags: [pattern-matcher]
+      summary: Get pattern matches for today
+      description: Returns historical days whose wave pattern most closely matches today's pattern
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 60
+        - name: minWaves
+          in: query
+          schema:
+            type: integer
+            default: 4
+        - name: tolerance
+          in: query
+          schema:
+            type: number
+            default: 15.0
+      responses:
+        "200":
+          description: Pattern match results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatternMatchResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Candle:
+      type: object
+      properties:
+        time:
+          type: integer
+          description: Unix timestamp in seconds
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+        isAsiaSession:
+          type: boolean
+      required:
+        - time
+        - open
+        - high
+        - low
+        - close
+        - volume
+        - isAsiaSession
+    WavePoint:
+      type: object
+      properties:
+        time:
+          type: integer
+        price:
+          type: number
+        wavePercent:
+          type: number
+        label:
+          type: string
+      required:
+        - time
+        - price
+        - wavePercent
+        - label
+    SessionAnalysis:
+      type: object
+      properties:
+        date:
+          type: string
+          description: ISO date string for the session
+        dateTimestamp:
+          type: integer
+          description: Unix timestamp for the session start
+        asiaHigh:
+          type: number
+        asiaLow:
+          type: number
+        asiaRange:
+          type: number
+        asiaHighTime:
+          type: integer
+        asiaLowTime:
+          type: integer
+        peakWaves:
+          type: array
+          items:
+            $ref: "#/components/schemas/WavePoint"
+        bottomWaves:
+          type: array
+          items:
+            $ref: "#/components/schemas/WavePoint"
+        peakWavePercents:
+          type: array
+          items:
+            type: number
+        bottomWavePercents:
+          type: array
+          items:
+            type: number
+        peakDirection:
+          type: string
+        bottomDirection:
+          type: string
+      required:
+        - date
+        - dateTimestamp
+        - asiaHigh
+        - asiaLow
+        - asiaRange
+        - asiaHighTime
+        - asiaLowTime
+        - peakWaves
+        - bottomWaves
+        - peakWavePercents
+        - bottomWavePercents
+        - peakDirection
+        - bottomDirection
+    PatternMatch:
+      type: object
+      properties:
+        date:
+          type: string
+        dateTimestamp:
+          type: integer
+        score:
+          type: number
+          description: Match score 0-100
+        peakScore:
+          type: number
+        bottomScore:
+          type: number
+        asiaRange:
+          type: number
+        historicalCandles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
+          description: Candles from that historical day for projection overlay
+        projectionPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/WavePoint"
+          description: Future projection based on historical pattern continuation
+      required:
+        - date
+        - dateTimestamp
+        - score
+        - peakScore
+        - bottomScore
+        - asiaRange
+        - historicalCandles
+        - projectionPoints
+    PatternMatchResult:
+      type: object
+      properties:
+        today:
+          $ref: "#/components/schemas/SessionAnalysis"
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/PatternMatch"
+          description: All similar historical days, sorted by score descending
+        bestMatch:
+          $ref: "#/components/schemas/PatternMatch"
+          nullable: true
+        currentCandles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
+          description: Current day candles for the main chart
+      required:
+        - today
+        - matches
+        - currentCandles
